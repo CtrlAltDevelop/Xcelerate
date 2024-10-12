@@ -1,0 +1,6 @@
+@Xcelerate_HostAddress = http://localhost:5182
+
+GET {{Xcelerate_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
