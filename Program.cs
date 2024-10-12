@@ -40,7 +40,22 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Global error handling
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next.Invoke();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine(ex.Message);
+        context.Response.StatusCode = 500;
+        await context.Response.WriteAsJsonAsync(new { error = "An error occurred while processing your request." });
+    }
+});
+
+// Swagger setup
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
