@@ -1,29 +1,40 @@
 using Microsoft.EntityFrameworkCore;
+using Hangfire;
+using Hangfire.SqlServer;
 using Xcelerate.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Set up the MSSQL connection string
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
 
-// Determine which connection string to use based on the environment
-string connectionString = builder.Environment.IsDevelopment()
-    ? builder.Configuration.GetConnectionString("SQLiteConnection")! // Use SQLite for development
-    : builder.Configuration.GetConnectionString("MSSQLConnection")!; // Use MSSQL for production
-
+// Configure Entity Framework Core to use SQL Server
 builder.Services.AddDbContext<XDbContext>(options =>
 {
-    if (builder.Environment.IsDevelopment())
-    {
-        options.UseSqlite(connectionString); // Use SQLite in development
-    }
-    else
-    {
-        options.UseSqlServer(connectionString); // Use SQL Server in production
-    }
+    options.UseSqlServer(connectionString);
 });
 
-// Add services to the container.
+// Configure Hangfire to use SQL Server
+builder.Services.AddHangfire(config =>
+{
+    config.SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+          .UseSimpleAssemblyNameTypeSerializer()
+          .UseRecommendedSerializerSettings()
+          .UseSqlServerStorage(connectionString, new SqlServerStorageOptions
+          {
+              CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+              SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+              QueuePollInterval = TimeSpan.Zero,
+              UseRecommendedIsolationLevel = true,
+              DisableGlobalLocks = true
+          });
+});
+
+// Add the Hangfire server for background processing
+builder.Services.AddHangfireServer();
+
+// Add other services to the container
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -68,6 +79,9 @@ app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+// Map Hangfire dashboard
+app.UseHangfireDashboard();
 
 app.MapControllers();
 
